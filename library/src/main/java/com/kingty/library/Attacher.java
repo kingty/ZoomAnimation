@@ -3,6 +3,7 @@ package com.kingty.library;
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.graphics.Canvas;
+import android.graphics.Rect;
 import android.support.annotation.NonNull;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,50 +13,47 @@ import java.util.List;
 /**
  * Created by kingty on 16/1/29.
  */
-public class Attacher implements IAttacher{
-	View view;
-	View preView;
-	String key = null;
+public class Attacher implements IAttacher {
 	public static final String TAG = "TZoomAnimation";
-	private final int DURATION = 800;
+	private View view;
+	private View preView;
+	private String key = null;
+	public static final int DEFAULT_DURATION = 800;
+	private static final int WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN = 0;
+	private static final int HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN = 1;
+	private static final int WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT = 2;
+
+	private float rectX, rectWidth, rectY, rectHeight;
+
+	private float preViewWidth, preViewHeight, preViewX, preViewY;
+
+	private float originWidth, originHeight;
+
+	private float translationX, translationY;
+
+	private boolean isClip;
+
+	private float clipL, clipT, clipR, clipB;
+
 
 	public Attacher(View view) {
 		this.view = view;
 	}
 
-	private float rectX;
-	private float rectWidth;
-	private float rectY;
-	private float rectHeight;
-
-	private float preViewWidth;
-	private float preViewHeight;
-	private float preViewX;
-	private float preViewY;
-
-	private float originWidth;
-	private float originHeight;
-
-	float translationX;
-	float translationY;
-	private CallBack<Float> callBack;
-	private boolean isClip;
-
-
-	@Override
-	public void setOriginHeight(float originHeight) {
+	public void setOriginalHeight(float originHeight) {
 		this.originHeight = originHeight;
 	}
-	@Override
-	public void setOriginWidth(float originWidth) {
+
+	public void setOriginalWidth(float originWidth) {
 		this.originWidth = originWidth;
 	}
 
 
 	public void callOnDrawBeforeSuper(@NonNull Canvas canvas) {
 		if (isClip)
-			canvas.clipRect(rectX, rectY, rectX + rectWidth, rectY + rectHeight);
+			canvas.clipRect(clipL, clipT, clipR, clipB);
 	}
+
 
 	private View isVisibleInPreActivity(IAttacher view, ViewGroup viewGroup) {
 
@@ -63,45 +61,59 @@ public class Attacher implements IAttacher{
 		for (View child : children) {
 			if (child instanceof IAttacher) {
 
-				if (((IAttacher) child).key() != null
-						&& view.key() != null
-						&& ((IAttacher) child).key().equals(view.key())) {
+				if (((IAttacher) child).zoomAnimationKey() != null
+						&& view.zoomAnimationKey() != null
+						&& ((IAttacher) child).zoomAnimationKey().equals(view.zoomAnimationKey())) {
 					ViewUtil.Pos fromPos = ViewUtil.pos(child);
 					preViewWidth = fromPos.w;
 					preViewHeight = fromPos.h;
 					preViewX = fromPos.x;
-					preViewY = fromPos.y - (ViewUtil.dp((View) view,25));
+					preViewY = fromPos.y - (ViewUtil.dp((View) view, 25));
 					return child;
 				}
 			}
 		}
 		return null;
 	}
-	@Override
-	public ValueAnimator zoomInAnimation(ViewGroup viewGroup, CallBack<Float> callBack) {
+
+	public ValueAnimator zoomInAnimation(ViewGroup viewGroup, CallBack callBack) {
 
 		return zoomAnimation(true, viewGroup, callBack);
 	}
-	@Override
-	public ValueAnimator zoomOutAnimation(ViewGroup viewGroup, CallBack<Float> callBack) {
+
+	public ValueAnimator zoomOutAnimation(ViewGroup viewGroup, CallBack callBack) {
 		return zoomAnimation(false, viewGroup, callBack);
 
 	}
-	@Override
-	public String key() {
+
+	public String zoomAnimationKey() {
 		return key;
 	}
-	@Override
-	public void setKey(String key) {
+
+	public void setZoomAnimationKey(String key) {
 
 		this.key = key;
 	}
 
-	private ValueAnimator zoomAnimation(boolean in, ViewGroup viewGroup, CallBack<Float> callBack) {
+	private ValueAnimator zoomAnimation(boolean in, ViewGroup viewGroup, CallBack callBack) {
 		preView = isVisibleInPreActivity((IAttacher) view, viewGroup);
 
 		if ((view instanceof IAttacher) && preView != null) {
-			preView.setVisibility(View.INVISIBLE);
+			ViewUtil.Pos fromPos = ViewUtil.pos(preView);
+			preViewWidth = fromPos.w;
+			preViewHeight = fromPos.h;
+			preViewX = fromPos.x;
+			preViewY = fromPos.y - ViewUtil.statusBarHeight(viewGroup.getContext());
+
+			preView.postDelayed(
+					new Runnable() {
+						@Override
+						public void run() {
+							if (preView != null) {
+								preView.setVisibility(View.INVISIBLE);
+							}
+						}
+					}, 10);
 			return zoomAnimation(in, callBack);
 		} else {
 			return null;
@@ -109,8 +121,92 @@ public class Attacher implements IAttacher{
 
 	}
 
+
+	private void setScale(float scale) {
+		view.setScaleX(scale);
+		view.setScaleY(scale);
+	}
+
+	private float ratioZoomPreViewToView() {
+		if (ratioView() > ratioOrigin()) {
+
+			return preViewWidth / (getViewHeight() * ratioOrigin());
+		} else {
+			if (originHeight > originWidth) {
+				return preViewWidth / getViewWidth();
+
+			} else {
+				return preViewHeight / (getViewWidth() / ratioOrigin());
+			}
+		}
+	}
+
+	private float ratioPreView() {
+		return preViewWidth / preViewHeight;
+	}
+
+	private float ratioOrigin() {
+		return originWidth / originHeight;
+	}
+
+	private float ratioView() {
+		return getViewWidth() / getViewHeight();
+	}
+
+	private float getViewWidth() {
+		return (float) view.getWidth();
+	}
+
+	private float getViewHeight() {
+		return (float) view.getHeight();
+	}
+
+	private float getRealWidthInView() {
+		if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			return getViewHeight() * ratioOrigin();
+		} else {
+			return getViewWidth();
+		}
+
+	}
+
+	private float getRealHeightInView() {
+		if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			return getViewHeight();
+		} else {
+			return getViewWidth() / ratioOrigin();
+		}
+	}
+
+	private int viewType() {
+		if (ratioPreView() > ratioOrigin()) { //clip up and down
+
+			if (originWidth > originHeight) {//in case the almost same ratio
+				return WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT;//in case of the warn
+			}
+
+			if (originHeight / originWidth < getViewHeight() / getViewWidth()) {//width full screen
+
+				return WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN;
+			} else {
+				return HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN;
+			}
+		} else {//clip left and right
+			if (originHeight > originWidth) {//in case the almost same ratio
+				if (originHeight / originWidth < getViewHeight() / getViewWidth()) {//width full screen
+
+					return WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN;
+				} else {
+					return HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN;
+				}
+			}
+			return WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT;
+		}
+	}
+
+
 	//use when not implements the interface in some case
-	public ValueAnimator zoomAnimation(boolean in, float preViewWidth, float preViewHeight, float preViewX, float preViewY, CallBack<Float> callBack) {
+	public ValueAnimator zoomAnimation(boolean in, float preViewWidth, float preViewHeight, float preViewX, float preViewY, CallBack callBack) {
 		this.preViewHeight = preViewHeight;
 		this.preViewWidth = preViewWidth;
 		this.preViewX = preViewX;
@@ -118,26 +214,13 @@ public class Attacher implements IAttacher{
 		return zoomAnimation(in, callBack);
 	}
 
-	private ValueAnimator zoomAnimation(final boolean in, CallBack<Float> callBack) {
+	private ValueAnimator zoomAnimation(final boolean in, final CallBack callBack) {
 		isClip = true;
-		final float preZoom;
-		this.callBack = callBack;
-		translationX = (preViewX + preViewWidth / 2) - view.getWidth() / 2;
-		translationY = (preViewY + preViewHeight / 2) - view.getHeight() / 2;
-
-		if (originHeight / originWidth > (float) view.getHeight() / (float) view.getWidth()) {
-
-			preZoom = preViewWidth / ((float) view.getHeight() * (originWidth / originHeight));
-		} else {
-			if (originHeight > originWidth) {
-				preZoom = preViewWidth / ((float) view.getWidth());
-
-			} else {
-				preZoom = preViewHeight / ((float) view.getWidth() * (originHeight / originWidth));
-			}
-		}
+		final float preZoom = ratioZoomPreViewToView();
+		translationX = (preViewX + preViewWidth / 2) - getViewWidth() / 2;
+		translationY = (preViewY + preViewHeight / 2) - getViewHeight() / 2;
 		ValueAnimator anim;
-		anim = ValueAnimator.ofFloat(0, 1).setDuration(DURATION);
+		anim = ValueAnimator.ofFloat(0, 1).setDuration(DEFAULT_DURATION);
 		anim.addUpdateListener(
 				new ValueAnimator.AnimatorUpdateListener() {
 					@Override
@@ -148,9 +231,11 @@ public class Attacher implements IAttacher{
 							initOutAttr(animation.getAnimatedFraction(), preZoom);
 						}
 						view.invalidate();
+						if (callBack != null) {
+							callBack.call(animation.getAnimatedFraction());
+						}
 					}
 				});
-
 		anim.addListener(new Animator.AnimatorListener() {
 			@Override
 			public void onAnimationStart(Animator animation) {
@@ -159,9 +244,24 @@ public class Attacher implements IAttacher{
 			@Override
 			public void onAnimationEnd(Animator animation) {
 				if (in) isClip = false;
-				if (preView != null) {
-					preView.setVisibility(View.VISIBLE);
-					preView = null;
+				if (in) {
+					if (preView != null) {
+						preView.post(
+								new Runnable() {
+									@Override
+									public void run() {
+										if (preView != null) {
+											preView.setVisibility(View.VISIBLE);
+											preView = null;
+										}
+									}
+								});
+					}
+				} else {
+					if (preView != null) {
+						preView.setVisibility(View.VISIBLE);
+						preView = null;
+					}
 				}
 			}
 
@@ -176,91 +276,181 @@ public class Attacher implements IAttacher{
 		return anim;
 	}
 
+	private void initInClipOnlyVisiblePart(float t) {
 
-	private void setScale(float scale) {
-		view.setScaleX(scale);
-		view.setScaleY(scale);
+		float left, top, right, bottom;
+		Rect visibleRect = new Rect();
+		preView.getLocalVisibleRect(visibleRect);
+		left = visibleRect.left;
+		right = visibleRect.right;
+		top = visibleRect.top;
+		bottom = visibleRect.bottom;
+
+		if (top != 0) {//top part is invisible
+			float ratio = top / preViewHeight;
+			float realHeight = getRealHeightInView();
+			if (t != 1) {
+				if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
+					clipT = (getViewHeight() - realHeight) / 2 + realHeight * ratio * (1 - t);
+				} else {
+					float scaleheight = 0;
+					if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+						scaleheight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+					} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+						scaleheight = getRealWidthInView() / ratioPreView();
+					}
+
+					float moreClipT = scaleheight * ratio * (1 - t);
+					clipT = rectY + moreClipT;
+				}
+			} else {
+				clipT = rectY;
+			}
+		} else if (bottom != preViewHeight) {//bottom part is invisible
+			float ratio = (preViewHeight - bottom) / preViewHeight;
+			float realHeight = getRealHeightInView();
+			if (t != 1) {
+				if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
+					clipB = rectY + rectHeight - ((getViewHeight() - realHeight) / 2 + realHeight * ratio * (1 - t));
+				} else {
+					float scaleheight = 0;
+					if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+						scaleheight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+					} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+						scaleheight = getRealWidthInView() / ratioPreView();
+					}
+
+					float moreClipT = scaleheight * ratio * (1 - t);
+					clipB = rectY + rectHeight - moreClipT;
+				}
+			} else {
+				clipT = rectY + rectHeight;
+			}
+		}
+
+
+	}
+
+	private void initOutClipOnlyVisiblePart(float t) {
+		float left, top, right, bottom;
+		Rect visibleRect = new Rect();
+		preView.getLocalVisibleRect(visibleRect);
+		left = visibleRect.left;
+		right = visibleRect.right;
+		top = visibleRect.top;
+		bottom = visibleRect.bottom;
+
+		if (top != 0) {
+			float ratio = top / preViewHeight;
+			float realHeight = getRealHeightInView();
+
+			if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
+				clipT = (getViewHeight() - realHeight) / 2 + realHeight * ratio * t;
+			} else {
+				float scaleheight = 0;
+				if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+					scaleheight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+				} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+					scaleheight = getRealWidthInView() / ratioPreView();
+				}
+				float moreClipT = scaleheight * ratio * t;
+				clipT = rectY + moreClipT;
+			}
+		} else if (bottom != preViewHeight) {//bottom part is invisible
+			float ratio = (preViewHeight - bottom) / preViewHeight;
+			float realHeight = getRealHeightInView();
+
+			if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
+				clipB = rectY + rectHeight - ((getViewHeight() - realHeight) / 2 + realHeight * ratio * t);
+			} else {
+				float scaleheight = 0;
+				if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+					scaleheight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+				} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+					scaleheight = getRealWidthInView() / ratioPreView();
+				}
+				float moreClipT = scaleheight * ratio * t;
+				clipB = rectY + rectHeight - moreClipT;
+			}
+		}
+
 	}
 
 	private void initInAttr(float t, float mZoomStart) {
-		float ratioPreView = preViewWidth / preViewHeight;
-		float ratioOrigin = originWidth / originHeight;
-		if (ratioPreView > ratioOrigin) {//clip up and down
-			if (originHeight / originWidth < (float) view.getHeight() / (float) view.getWidth()) {//width full screen
-				float realHeight = view.getWidth() * (originHeight / originWidth);
-				float scaleHeight = (realHeight / ratioPreView) * ratioOrigin;
-				rectHeight = scaleHeight + (view.getHeight() - scaleHeight) * t;
-				rectWidth = view.getWidth();
-				rectX = 0;
-				rectY = (view.getHeight() - rectHeight) / 2;
-			} else {
-				float realWidth = view.getHeight() * (originWidth / originHeight);
-				float scaleheight = (realWidth / preViewWidth) * preViewHeight;
-				rectHeight = scaleheight + (view.getHeight() - scaleheight) * t;
-				rectWidth = view.getWidth();
-				rectX = 0;
-				rectY = (view.getHeight() - rectHeight) / 2;
-			}
-
-		} else {//clip left and right
-
-			float realHeight = view.getWidth() * (originHeight / originWidth);
-			float scaleWidth = (realHeight / preViewHeight) * preViewWidth;
-			rectWidth = scaleWidth + (view.getWidth() - scaleWidth) * t;
-			rectHeight = view.getHeight();
+		if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			float scaleHeight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+			rectHeight = scaleHeight + (getViewHeight() - scaleHeight) * t;
+			rectWidth = getViewWidth();
+			rectX = 0;
+			rectY = (getViewHeight() - rectHeight) / 2;
+		} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			float scaleheight = getRealWidthInView() / ratioPreView();
+			rectHeight = scaleheight + (getViewHeight() - scaleheight) * t;
+			rectWidth = getViewWidth();
+			rectX = 0;
+			rectY = (getViewHeight() - rectHeight) / 2;
+		} else if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
+			float scaleWidth = getRealHeightInView() * ratioPreView();
+			rectWidth = scaleWidth + (getViewWidth() - scaleWidth) * t;
+			rectHeight = getViewHeight();
 			rectY = 0;
-			rectX = (view.getWidth() - rectWidth) / 2;
+			rectX = (getViewWidth() - rectWidth) / 2;
 		}
 
 		float scale = mZoomStart + t * (1 - mZoomStart);
 		setScale(scale);
 
-		view.setPivotX(view.getWidth() / 2);
-		view.setPivotY(view.getHeight() / 2);
+		view.setPivotX(getViewWidth() / 2);
+		view.setPivotY(getViewHeight() / 2);
 		view.setTranslationX(translationX * (1 - t));
 		view.setTranslationY(translationY * (1 - t));
-		callBack.call(t);
+
+		clipL = rectX;
+		clipT = rectY;
+		clipR = rectX + rectWidth;
+		clipB = rectY + rectHeight;
+
+		initInClipOnlyVisiblePart(t);
 	}
 
 
 	private void initOutAttr(float t, float mZoomEnd) {
-		float ratio1 = preViewWidth / preViewHeight;
-		float ratio2 = originWidth / originHeight;
-		if (ratio1 > ratio2) {//clip up and down
-			if (originHeight / originWidth < (float) view.getHeight() / (float) view.getWidth()) {
-				float realHeight = view.getWidth() * (originHeight / originWidth);
-				float scaleHeight = (realHeight / ratio1) * ratio2;
+		if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			float scaleHeight = (getRealHeightInView() / ratioPreView()) * ratioOrigin();
+			rectHeight = getViewHeight() - (getViewHeight() - scaleHeight) * t;
+			rectWidth = getViewWidth();
+			rectX = 0;
+			rectY = (getViewHeight() - rectHeight) / 2;
+		} else if (viewType() == HEIGHT_FULL_VIEW_PREVIEW_CLIP_UP_AND_DOWN) {
+			float scaleheight = getRealWidthInView() / ratioPreView();
+			rectHeight = getViewHeight() - (getViewHeight() - scaleheight) * t;
+			rectWidth = getViewWidth();
+			rectX = 0;
+			rectY = (getViewHeight() - rectHeight) / 2;
+		} else if (viewType() == WIDTH_FULL_VIEW_PREVIEW_CLIP_LEFT_AND_RIGHT) {
 
-				rectHeight = view.getHeight() - (view.getHeight() -scaleHeight) * t;
-				rectWidth = view.getWidth();
-				rectX = 0;
-				rectY = (view.getHeight() - rectHeight) / 2;
-			} else {
-				float realWidth = view.getHeight() * (originWidth / originHeight);
-				float scaleheight = (realWidth / preViewWidth) * preViewHeight;
-				rectHeight = view.getHeight() - (view.getHeight() - scaleheight) * t;
-				rectWidth = view.getWidth();
-				rectX = 0;
-				rectY = (view.getHeight() - rectHeight) / 2;
-			}
+			float scaleWidth = getRealHeightInView() * ratioPreView();
 
-		} else {//clip left and right
-
-			float realHeight = view.getWidth() * (originHeight / originWidth);
-			float scaleWidth = (realHeight / preViewHeight) * preViewWidth;
-			rectWidth = view.getWidth() - (view.getWidth() - scaleWidth) * t;
-			rectHeight = view.getHeight();
+			rectWidth = getViewWidth() - (getViewWidth() - scaleWidth) * t;
+			rectHeight = getViewHeight();
 			rectY = 0;
-			rectX = (view.getWidth() - rectWidth) / 2;
+			rectX = (getViewWidth() - rectWidth) / 2;
 		}
+
 		float scale = 1 - (1 - mZoomEnd) * t;
 		setScale(scale);
 
-		view.setPivotX(view.getWidth() / 2);
-		view.setPivotY(view.getHeight() / 2);
+		view.setPivotX(getViewWidth() / 2);
+		view.setPivotY(getViewHeight() / 2);
 		view.setTranslationX(translationX * t);
 		view.setTranslationY(translationY * t);
-		callBack.call(t);
+
+		clipL = rectX;
+		clipT = rectY;
+		clipR = rectX + rectWidth;
+		clipB = rectY + rectHeight;
+
+		initOutClipOnlyVisiblePart(t);
 	}
 
 

@@ -24,9 +24,9 @@ public class MainActivity extends AppCompatActivity {
 
 		test = (ZoomImageView) findViewById(R.id.test);
 		//this key shold be the same as the image which bigger,usually it is the url or the url's commom part
-		test.setKey("test");
+		test.setZoomAnimationKey("test");
 		test1 = (ZoomImageView) findViewById(R.id.test1);
-		test1.setKey("test1");
+		test1.setZoomAnimationKey("test1");
 
 		zoomImageView = (ZoomImageView) findViewById(R.id.zoomview);
 		/**
@@ -52,9 +52,9 @@ public class MainActivity extends AppCompatActivity {
 										zoomImageView.setImageDrawable(drawable);
 
 										//set this three attrs
-										zoomImageView.setKey(test.key());
-										zoomImageView.setOriginHeight(drawable.getIntrinsicHeight());
-										zoomImageView.setOriginWidth(drawable.getIntrinsicWidth());
+										zoomImageView.setZoomAnimationKey(test.zoomAnimationKey());
+										zoomImageView.setOriginalHeight(drawable.getIntrinsicHeight());
+										zoomImageView.setOriginalWidth(drawable.getIntrinsicWidth());
 
 										ValueAnimator valueAnimator = zoomImageView.zoomInAnimation(preViewGroup,
 												new CallBack<Float>() {
@@ -80,9 +80,9 @@ public class MainActivity extends AppCompatActivity {
 						Drawable drawable = getResources().getDrawable(R.drawable.test1);
 						zoomImageView.setImageDrawable(drawable);
 
-						zoomImageView.setKey(test1.key());
-						zoomImageView.setOriginHeight(drawable.getIntrinsicHeight());
-						zoomImageView.setOriginWidth(drawable.getIntrinsicWidth());
+						zoomImageView.setZoomAnimationKey(test1.zoomAnimationKey());
+						zoomImageView.setOriginalHeight(drawable.getIntrinsicHeight());
+						zoomImageView.setOriginalWidth(drawable.getIntrinsicWidth());
 
 
 						ValueAnimator valueAnimator = zoomImageView.zoomInAnimation(preViewGroup,

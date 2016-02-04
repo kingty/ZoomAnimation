@@ -2,6 +2,7 @@ package com.kingty.library;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,5 +57,15 @@ public class ViewUtil {
 			c = (View) c.getParent();
 		}
 		return pos;
+	}
+	static int statusBarHeight = -1;
+	public static int statusBarHeight(Context c) {
+		if (statusBarHeight == -1) {
+			int resourceId = c.getResources().getIdentifier("status_bar_height", "dimen", "android");
+			if (resourceId > 0) {
+				statusBarHeight = c.getResources().getDimensionPixelSize(resourceId);
+			}
+		}
+		return statusBarHeight;
 	}
 }

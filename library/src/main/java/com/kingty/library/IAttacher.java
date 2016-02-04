@@ -11,13 +11,13 @@ public interface IAttacher {
 	 * set the really height of view
 	 * @param originHeight
 	 */
-	void setOriginHeight(float originHeight);
+	void setOriginalHeight(float originHeight);
 
 	/**
 	 * set the really width of view
 	 * @param originWidth
 	 */
-	void setOriginWidth(float originWidth);
+	void setOriginalWidth(float originWidth);
 
 	ValueAnimator zoomInAnimation(ViewGroup viewGroup, CallBack<Float> callBack);
 	ValueAnimator zoomOutAnimation(ViewGroup viewGroup, CallBack<Float> callBack);
@@ -26,11 +26,11 @@ public interface IAttacher {
 	 * get the key
 	 * @return
 	 */
-	String key();
+	String zoomAnimationKey();
 
 	/**
 	 * set the key when two view in diffrent act ,to find the position
 	 * @param key
 	 */
-	void setKey(String key);
+	void setZoomAnimationKey(String key);
 }

@@ -38,13 +38,13 @@ public class ZoomImageView extends ImageView implements IAttacher{
 	}
 
 	@Override
-	public void setOriginHeight(float originHeight) {
-		mAttacher.setOriginHeight(originHeight);
+	public void setOriginalHeight(float originHeight) {
+		mAttacher.setOriginalHeight(originHeight);
 	}
 
 	@Override
-	public void setOriginWidth(float originWidth) {
-		mAttacher.setOriginWidth(originWidth);
+	public void setOriginalWidth(float originWidth) {
+		mAttacher.setOriginalWidth(originWidth);
 	}
 
 	@Override
@@ -58,12 +58,14 @@ public class ZoomImageView extends ImageView implements IAttacher{
 	}
 
 	@Override
-	public String key() {
-		return mAttacher.key();
+	public String zoomAnimationKey() {
+		return mAttacher.zoomAnimationKey();
 	}
 
 	@Override
-	public void setKey(String key) {
-		mAttacher.setKey(key);
+	public void setZoomAnimationKey(String key) {
+
+		mAttacher.setZoomAnimationKey(key);
 	}
+
 }
